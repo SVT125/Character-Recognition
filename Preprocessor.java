@@ -7,13 +7,13 @@ import java.awt.Image;
 import javax.imageio.ImageIO;
 
 public class Preprocessor {
-	public static void main( String[] args ) throws IllegalArgumentException {
+	public static void main( String[] args ) {
 		int counter = 0;
 		Path dir;
 		if( args.length > 1 )
-			dir = Paths.get("/examples" + args[1]);
+			dir = Paths.get("C:/Users/James/Programming/examples/" + args[1]);
 		else 
-			throw new IllegalArgumentException( "Provide the folder extension for files to rename as the second argument." );
+			dir = Paths.get("/Programming/examples");
 		
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
