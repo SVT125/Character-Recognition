@@ -3,6 +3,11 @@
 
 // Initial neural network implementation will have 100 units per layer, 2 hidden layers.
 
+/* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
+   Provide back propagation for partial derivatives
+   Implement gradient descent or some other advanced algorithm
+*/ 
+
 import org.apache.commons.math3.linear.*;
 import org.apache.commons.math3.analysis.function.Sigmoid;
 import java.nio.file.*;
@@ -16,7 +21,7 @@ public class NeuralNetwork {
 	static BlockRealMatrix theta1;
 	static BlockRealMatrix theta2;
 	static BlockRealMatrix theta3;
-	static ArrayRealVector hypothesis = new ArrayRealVector(26); // layer 4, final vector result
+	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	
 	public static void main( String[] args ) {
 		NeuralNetwork.examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
@@ -27,16 +32,26 @@ public class NeuralNetwork {
 		
 		// Intermediary steps...
 		
-		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(1));
+		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(1)); // Testing the forward prop method with 1 example
+		NeuralNetwork.printMatrix(hypothesis); // Test proper printing, sanity check of hypothesis
 	}
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
-	public static ArrayRealVector forwardPropagation(Example ex) {
+	public static BlockRealMatrix forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
 		BlockRealMatrix act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.transpose().getColumnVector(0)))));
-		return new ArrayRealVector(); // placeholder...
+			
+		BlockRealMatrix z3 = NeuralNetwork.theta2.multiply(act2);
+		BlockRealMatrix act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+			NeuralNetwork.sigmoid(new ArrayRealVector(z3.transpose().getColumnVector(0)))));
+			
+		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
+		BlockRealMatrix act4 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+			NeuralNetwork.sigmoid(new ArrayRealVector(z4.transpose().getColumnVector(0)))));
+		
+		return act4;
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
