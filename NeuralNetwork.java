@@ -11,12 +11,34 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 
 public class NeuralNetwork {
+	static List<Example> examples;
+	static BlockRealMatrix theta1;
+	static BlockRealMatrix theta2;
+	static ArrayRealVector act1 = new ArrayRealVector(100);
+	static ArrayRealVector act2 = new ArrayRealVector(100);
+	
 	public static void main( String[] args ) {
-		List<Example> examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
+		NeuralNetwork.examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
 		System.out.println( "Loaded in examples." );
-		System.out.println( examples.size() );
+		theta1 = NeuralNetwork.randInitialize( 2, 100, 101 );
+		theta2 = NeuralNetwork.randInitialize( 2, 100, 101 );
 		
 	}
+	
+	// Randomly initialize each of the theta values by [negEpsilon, epsilon] or [-epsilon, epsilon].
+	// Maybe rework the method to initialize more optimally, current naive implementation in quadratic time.
+	public static BlockRealMatrix randInitialize( int epsilon, int row, int col ) {
+		BlockRealMatrix mat = new BlockRealMatrix(row,col);
+		Random r = new Random();
+		for( int i = 0; i < row; i++ )
+			for( int j = 0; j < col; j++ ) {
+				int rand = r.nextInt(epsilon) - 2;
+				mat.addToEntry(i,j,(double)rand);
+			}
+		return mat;
+	}
+	
+	// Read in the examples' input and output by reading their RGB values and the name (per format), stored in a List.
 	public static List<Example> readExamples(String path ) {
 		List<Example> ex = new ArrayList<Example>();
 		Path dir = Paths.get(path);

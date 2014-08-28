@@ -6,6 +6,7 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import javax.imageio.ImageIO;
 
+// Auxiliary class for renaming images to the appropriate format and rescaling them to the 30x30 image size.
 public class Preprocessor {
 	public static void main( String[] args ) {
 		int counter = 0;
