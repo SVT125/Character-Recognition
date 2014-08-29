@@ -6,7 +6,6 @@
 /* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
    Provide back propagation for partial derivatives
    Implement gradient descent or some other advanced algorithm
-   Fix RGB values
 */ 
 
 import org.apache.commons.math3.linear.*;
@@ -31,18 +30,19 @@ public class NeuralNetwork {
 		NeuralNetwork.examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
 		NeuralNetwork.examples = NeuralNetwork.meanNormalize( NeuralNetwork.examples );
 		
-		theta1 = NeuralNetwork.randInitialize( 2, 101, 401 );
+		theta1 = NeuralNetwork.randInitialize( 1.2, 101, 401 );
 		System.out.println( "Randomly initialized first parameter vector." );
-		theta2 = NeuralNetwork.randInitialize( 2, 101, 101 );
+		theta2 = NeuralNetwork.randInitialize( 1.2, 101, 101 );
 		System.out.println( "Randomly initialized second parameter vector." );
-		theta3 = NeuralNetwork.randInitialize( 2, 27, 101 );
+		theta3 = NeuralNetwork.randInitialize( 1.2, 27, 101 );
 		System.out.println( "Randomly initialized third parameter vector." );
 		
-		// Intermediary steps...
+		// Intermediary steps... (backprop, optimizing theta)
 		
-		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(2)).transpose(); // Testing the forward prop method with 1 example
-		//NeuralNetwork.printMatrix(hypothesis);
-		//NeuralNetwork.printDimensions(hypothesis);
+		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(0)); // Testing the forward prop method with 1 example
+		NeuralNetwork.printMatrix(hypothesis);
+		System.out.println("---------------------");
+		NeuralNetwork.printHypothesis(hypothesis);
 	}
 	
 	// Runs forward propagation, given this particular neural network.
@@ -50,15 +50,14 @@ public class NeuralNetwork {
 	public static BlockRealMatrix forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
 		BlockRealMatrix act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
-			NeuralNetwork.sigmoid(new ArrayRealVector(z2.transpose().getColumnVector(0)))));
-			
+			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
+		
 		BlockRealMatrix z3 = NeuralNetwork.theta2.multiply(act2);
 		BlockRealMatrix act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
-			NeuralNetwork.sigmoid(new ArrayRealVector(z3.transpose().getColumnVector(0)))));
+			NeuralNetwork.sigmoid(new ArrayRealVector(z3.getColumnVector(0)))));
 			
 		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
-		BlockRealMatrix act4 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
-			NeuralNetwork.sigmoid(new ArrayRealVector(z4.transpose().getColumnVector(0)))));
+		BlockRealMatrix act4 = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
 		
 		return act4;
 	}
@@ -71,12 +70,12 @@ public class NeuralNetwork {
 	
 	// Randomly initialize each of the theta values by [negEpsilon, epsilon] or [-epsilon, epsilon].
 	// Can rework the method to initialize more optimally, current naive implementation in quadratic time.
-	public static BlockRealMatrix randInitialize( int epsilon, int row, int col ) {
+	public static BlockRealMatrix randInitialize( double epsilon, int row, int col ) {
 		BlockRealMatrix mat = new BlockRealMatrix(row,col);
 		Random r = new Random();
 		for( int i = 0; i < row; i++ )
 			for( int j = 0; j < col; j++ ) {
-				double rand = r.nextDouble() * 4.0 - 2.0;
+				double rand = r.nextDouble() * (2*epsilon) - epsilon;
 				mat.addToEntry(i,j,rand);
 			}
 		return mat;
@@ -118,7 +117,7 @@ public class NeuralNetwork {
 						input.addToEntry( (i+1)*(j+1), sumColor); // will normalize using meanNormalize()
 					}
 				}
-				input.addToEntry(1,1); // the x0
+				input.addToEntry(0,1); // the x0
 				ex.add( new Example(letter, input) );
 			}
 		} catch (IOException | DirectoryIteratorException x) {
@@ -131,16 +130,16 @@ public class NeuralNetwork {
 	// Print the hypothesis - take the highest value across all the entries and convert to the character.
 	// Assumes hypothesis is a 1 x n matrix.
 	public static void printHypothesis( BlockRealMatrix hyp ) {
-		double max = 0;
+		double max = -1;
 		int index = 0; // default
-		double[] data = hyp.getRowVector(0).toArray();
+		double[] data = hyp.getColumnVector(0).toArray();
 		for( int i = 0; i < data.length; i++ ) {
-			if( max > data[i] ) {
+			if( data[i] > max ) {
 				max = data[i];
 				index = i;
 			}
 		}
-		System.out.println( (char) (index+65) );
+		System.out.println( "The predicted character is: " + (char) (index+65) );
 	}
 	
 	// Auxiliary method to check proper vector accesses.
@@ -155,6 +154,14 @@ public class NeuralNetwork {
 		}
 	}
 	
+	// Auxiliary method to print the vector.
+	public static void printVector( ArrayRealVector vec ) {
+		double[] array = vec.toArray();
+		for( int i = 0; i < array.length; i++ ) {
+			System.out.println( array[i] );
+		}
+	}
+	
 	// Auxiliary method to turn an ArrayRealVector to a BlockRealMatrix.
 	public static BlockRealMatrix convertMatrix( ArrayRealVector vec ) {
 		BlockRealMatrix mat = new BlockRealMatrix(vec.getDimension(),1);
@@ -166,8 +173,8 @@ public class NeuralNetwork {
 	// Auxiliary method to dump a resultant array into an existing one considering the dummy 0th element = 1.
 	public static ArrayRealVector dump( ArrayRealVector finalVec, ArrayRealVector dumpVec ) {
 		finalVec.setEntry(0,1);
-		for( int i = 0; i < dumpVec.getDimension(); i++ )
-			finalVec.setEntry(i+1,dumpVec.getEntry(i));
+		for( int i = 1; i < dumpVec.getDimension(); i++ )
+			finalVec.setEntry(i,dumpVec.getEntry(i));
 		return finalVec;
 	}
 
