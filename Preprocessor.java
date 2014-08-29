@@ -12,21 +12,28 @@ public class Preprocessor {
 		int counter = 0;
 		Path dir;
 		if( args.length > 1 )
-			dir = Paths.get("C:/Users/James/Programming/examples/" + args[1]);
+			dir = Paths.get("C:/Users/James/Programming/examplesTest/" + args[1]);
 		else 
-			dir = Paths.get("/Programming/examples");
+			dir = Paths.get("C:/Users/James/Programming/examplesTest");
 		
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
 				BufferedImage bim = ImageIO.read(new File(file.toString()));
-				Image img = bim.getScaledInstance(30,30,bim.SCALE_SMOOTH);
+				Image img = bim.getScaledInstance(20,20,bim.SCALE_SMOOTH);
 				BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
 				Graphics2D bGr = bimage.createGraphics();
 				bGr.drawImage(img, 0, 0, null);
 				bGr.dispose();
 				File output = new File("example" + args[0] + Integer.toString(counter++));
 				ImageIO.write(bimage, "PNG", output);
+			}
 
+		} catch (IOException | DirectoryIteratorException x) {
+			System.err.println(x);
+		}
+		
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+			for (Path file: stream) {
 				File currentFile = new File( file.toString() );
 				File newFile = new File( file.toString() + ".png" );
 				currentFile.renameTo(newFile);

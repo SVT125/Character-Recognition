@@ -1,4 +1,4 @@
-// Will expect images of dimensions 30 x 30 pixels (900 features)as input.
+// Will expect images of dimensions 20 x 20 pixels (400 features)as input.
 // Use file naming format e.g. "exampleL0001.jpg", where we read in the file name and take the 8th character as the output y, here "L".
 
 // Initial neural network implementation will have 100 units per layer, 2 hidden layers.
@@ -6,7 +6,6 @@
 /* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
    Provide back propagation for partial derivatives
    Implement gradient descent or some other advanced algorithm
-   Fix hypothesis vector (prints in 1x101)
    Fix RGB values
 */ 
 
@@ -15,6 +14,7 @@ import org.apache.commons.math3.analysis.function.Sigmoid;
 import java.nio.file.*;
 import java.io.*;
 import java.util.*;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
@@ -23,19 +23,26 @@ public class NeuralNetwork {
 	static BlockRealMatrix theta1;
 	static BlockRealMatrix theta2;
 	static BlockRealMatrix theta3;
-	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
+	static BlockRealMatrix hypothesis = new BlockRealMatrix(27,1); // layer 4, final vector result
+	static double colorSum = 0; // sum of all numbers r, g, b across all examples
+	static double colorNum = 0; // number of examples
 	
 	public static void main( String[] args ) {
 		NeuralNetwork.examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
-		System.out.println( "Loaded in examples." );
-		theta1 = NeuralNetwork.randInitialize( 2, 100, 901 );
-		theta2 = NeuralNetwork.randInitialize( 2, 100, 101 );
-		theta3 = NeuralNetwork.randInitialize( 2, 26, 101 );
+		NeuralNetwork.examples = NeuralNetwork.meanNormalize( NeuralNetwork.examples );
+		
+		theta1 = NeuralNetwork.randInitialize( 2, 101, 401 );
+		System.out.println( "Randomly initialized first parameter vector." );
+		theta2 = NeuralNetwork.randInitialize( 2, 101, 101 );
+		System.out.println( "Randomly initialized second parameter vector." );
+		theta3 = NeuralNetwork.randInitialize( 2, 27, 101 );
+		System.out.println( "Randomly initialized third parameter vector." );
 		
 		// Intermediary steps...
 		
-		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(220)); // Testing the forward prop method with 1 example
-		NeuralNetwork.printHypothesis(hypothesis); // Test proper printing, sanity check of hypothesis
+		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(2)).transpose(); // Testing the forward prop method with 1 example
+		//NeuralNetwork.printMatrix(hypothesis);
+		//NeuralNetwork.printDimensions(hypothesis);
 	}
 	
 	// Runs forward propagation, given this particular neural network.
@@ -75,20 +82,40 @@ public class NeuralNetwork {
 		return mat;
 	}
 	
+	// Normalize the examples' features.
+	public static List<Example> meanNormalize( List<Example> exList ) {
+		double colorMean = NeuralNetwork.colorSum / NeuralNetwork.colorNum;
+		for( Example ex : exList ) {
+			ArrayRealVector vec = ex.x;
+			for( int i = 0; i < 401; i++ ) {
+				vec.setEntry(i,(vec.getEntry(i)-colorMean)/768);
+			}
+			ex.x = vec;
+		}
+		return exList;
+	}
+	
 	// Read in the examples' input and output by reading their RGB values and the name (per format), stored in a List.
 	public static List<Example> readExamples(String path ) {
+		int numExamples = 0;
 		List<Example> ex = new ArrayList<Example>();
 		Path dir = Paths.get(path);
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
-				ArrayRealVector input = new ArrayRealVector(901);
+				numExamples++;
+				ArrayRealVector input = new ArrayRealVector(401);
 				String filePath = file.toString();
 				String subFilePath = filePath.substring(path.length(),filePath.length());
 				char letter = subFilePath.charAt(7); // by the format "exampleL0001.jpg".
 				BufferedImage bim = ImageIO.read(new File(filePath));
-				for( int i = 0; i < 30; i++ ) {
-					for( int j = 0; j < 30; j++ ) {
-						input.addToEntry( (i+1)*(j+1), bim.getRGB(i,j));
+				for( int i = 0; i < 20; i++ ) {
+					for( int j = 0; j < 20; j++ ) {
+						int colorMean = bim.getRGB(i,j); 
+						Color c = new Color(colorMean);
+						int sumColor = c.getRed() + c.getGreen() + c.getBlue();
+						NeuralNetwork.colorSum += sumColor;
+						NeuralNetwork.colorNum++;
+						input.addToEntry( (i+1)*(j+1), sumColor); // will normalize using meanNormalize()
 					}
 				}
 				input.addToEntry(1,1); // the x0
@@ -97,11 +124,27 @@ public class NeuralNetwork {
 		} catch (IOException | DirectoryIteratorException x) {
 			System.err.println(x);
 		}
+		System.out.println( "Loaded in " + numExamples + " examples." );
 		return ex;
 	}
 	
-	// Prints the matrix by creating an 2d double array primitive to loop over, works for non n x n matrices.
+	// Print the hypothesis - take the highest value across all the entries and convert to the character.
+	// Assumes hypothesis is a 1 x n matrix.
+	public static void printHypothesis( BlockRealMatrix hyp ) {
+		double max = 0;
+		int index = 0; // default
+		double[] data = hyp.getRowVector(0).toArray();
+		for( int i = 0; i < data.length; i++ ) {
+			if( max > data[i] ) {
+				max = data[i];
+				index = i;
+			}
+		}
+		System.out.println( (char) (index+65) );
+	}
+	
 	// Auxiliary method to check proper vector accesses.
+	// Prints the matrix by creating an 2d double array primitive to loop over, works for non n x n matrices.
 	public static void printMatrix( BlockRealMatrix brm ) {
 		double[][] mat = brm.getData();
 		for( int i = 0; i < mat.length; i++ ) {
@@ -128,19 +171,9 @@ public class NeuralNetwork {
 		return finalVec;
 	}
 
-	// Print the hypothesis - take the highest value across all the entries and convert to the character.
-	// Assumes hypothesis is a 1 x n matrix.
-	public static void printHypothesis( BlockRealMatrix hyp ) {
-		double max = 0;
-		int index = 0; // default
-		double[] data = hyp.getRowVector(0).toArray();
-		for( int i = 0; i < data.length; i++ ) {
-			if( max > data[i] ) {
-				max = data[i];
-				index = i;
-			}
-		}
-		System.out.println( (char) (index+65) );
+	// Auxiliary method to check the dimensions of the input matrix.
+	public static void printDimensions( BlockRealMatrix mat ) {
+		System.out.println( "Number of rows: " + mat.getColumnVector(0).getDimension() );
+		System.out.println( "Number of columns: " + mat.getRowVector(0).getDimension() );		
 	}
 }
-
