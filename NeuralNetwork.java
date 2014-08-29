@@ -6,6 +6,8 @@
 /* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
    Provide back propagation for partial derivatives
    Implement gradient descent or some other advanced algorithm
+   Fix hypothesis vector (prints in 1x101)
+   Fix RGB values
 */ 
 
 import org.apache.commons.math3.linear.*;
@@ -32,8 +34,8 @@ public class NeuralNetwork {
 		
 		// Intermediary steps...
 		
-		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(1)); // Testing the forward prop method with 1 example
-		NeuralNetwork.printMatrix(hypothesis); // Test proper printing, sanity check of hypothesis
+		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(220)); // Testing the forward prop method with 1 example
+		NeuralNetwork.printHypothesis(hypothesis); // Test proper printing, sanity check of hypothesis
 	}
 	
 	// Runs forward propagation, given this particular neural network.
@@ -67,8 +69,8 @@ public class NeuralNetwork {
 		Random r = new Random();
 		for( int i = 0; i < row; i++ )
 			for( int j = 0; j < col; j++ ) {
-				int rand = r.nextInt(epsilon) - epsilon;
-				mat.addToEntry(i,j,(double)rand);
+				double rand = r.nextDouble() * 4.0 - 2.0;
+				mat.addToEntry(i,j,rand);
 			}
 		return mat;
 	}
@@ -124,6 +126,21 @@ public class NeuralNetwork {
 		for( int i = 0; i < dumpVec.getDimension(); i++ )
 			finalVec.setEntry(i+1,dumpVec.getEntry(i));
 		return finalVec;
+	}
+
+	// Print the hypothesis - take the highest value across all the entries and convert to the character.
+	// Assumes hypothesis is a 1 x n matrix.
+	public static void printHypothesis( BlockRealMatrix hyp ) {
+		double max = 0;
+		int index = 0; // default
+		double[] data = hyp.getRowVector(0).toArray();
+		for( int i = 0; i < data.length; i++ ) {
+			if( max > data[i] ) {
+				max = data[i];
+				index = i;
+			}
+		}
+		System.out.println( (char) (index+65) );
 	}
 }
 

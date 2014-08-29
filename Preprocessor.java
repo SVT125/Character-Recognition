@@ -25,8 +25,13 @@ public class Preprocessor {
 				bGr.drawImage(img, 0, 0, null);
 				bGr.dispose();
 				File output = new File("example" + args[0] + Integer.toString(counter++));
-				ImageIO.write(bimage, "png", output);
+				ImageIO.write(bimage, "PNG", output);
+
+				File currentFile = new File( file.toString() );
+				File newFile = new File( file.toString() + ".png" );
+				currentFile.renameTo(newFile);
 			}
+
 		} catch (IOException | DirectoryIteratorException x) {
 			System.err.println(x);
 		}
