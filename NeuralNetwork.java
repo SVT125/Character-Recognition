@@ -18,48 +18,72 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
 public class NeuralNetwork {
-	static List<Example> examples;
+	static List<Example> trainingExamples;
+	static List<Example> testExamples;
+	
 	static BlockRealMatrix theta1;
 	static BlockRealMatrix theta2;
 	static BlockRealMatrix theta3;
-	static BlockRealMatrix hypothesis = new BlockRealMatrix(27,1); // layer 4, final vector result
+	static BlockRealMatrix pDerivative2;
+	static BlockRealMatrix pDerivative3;
+	static BlockRealMatrix pDerivative4;
+	static BlockRealMatrix act2;
+	static BlockRealMatrix act3;
+	
+	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of examples
 	
 	public static void main( String[] args ) {
-		NeuralNetwork.examples = NeuralNetwork.readExamples("C:/Users/James/Programming/examples/");
-		NeuralNetwork.examples = NeuralNetwork.meanNormalize( NeuralNetwork.examples );
+		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/");
+		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/");
+		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.trainingExamples );
+		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.testExamples );
 		
-		theta1 = NeuralNetwork.randInitialize( 1.2, 101, 401 );
+		theta1 = NeuralNetwork.randInitialize( 1, 101, 401 );
 		System.out.println( "Randomly initialized first parameter vector." );
-		theta2 = NeuralNetwork.randInitialize( 1.2, 101, 101 );
+		theta2 = NeuralNetwork.randInitialize( 1, 101, 101 );
 		System.out.println( "Randomly initialized second parameter vector." );
-		theta3 = NeuralNetwork.randInitialize( 1.2, 27, 101 );
+		theta3 = NeuralNetwork.randInitialize( 1, 26, 101 );
 		System.out.println( "Randomly initialized third parameter vector." );
 		
-		// Intermediary steps... (backprop, optimizing theta)
-		
-		hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.examples.get(0)); // Testing the forward prop method with 1 example
-		NeuralNetwork.printMatrix(hypothesis);
+		/* 
+		Intermediary steps... (backprop, optimizing theta)
+		*/
+		NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(0)); // Testing the forward prop method with 1 example
+		NeuralNetwork.printDimensions(hypothesis);
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
 	}
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
-	public static BlockRealMatrix forwardPropagation(Example ex) {
+	public static void forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
-		BlockRealMatrix act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+		NeuralNetwork.act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
 		
 		BlockRealMatrix z3 = NeuralNetwork.theta2.multiply(act2);
-		BlockRealMatrix act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+		NeuralNetwork.act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z3.getColumnVector(0)))));
 			
 		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
-		BlockRealMatrix act4 = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
+		NeuralNetwork.hypothesis = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
+	}
+	
+	// Runs back propagation.
+	public static void backPropagation(Example ex) {
+		BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.hypothesis).subtract(ex.y));
 		
-		return act4;
+		ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3.multiply(NeuralNetwork.act3.scalarMultiply(-1d).scalarAdd(1d)));
+		BlockRealMatrix error3 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta3.transpose().multiply(error4))
+			.ebeMultiply(derivative3));
+			
+		ArrayRealVector derivative2 = NeuralNetwork.convertVector(NeuralNetwork.act2.multiply(NeuralNetwork.act2.scalarMultiply(-1d).scalarAdd(1d)));
+		BlockRealMatrix error2 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta2.transpose().multiply(error3))
+			.ebeMultiply(derivative2));
+			
+		NeuralNetwork.printDimensions(derivative3); // ERROR DIMENSIONS ARE WRONG
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
@@ -170,6 +194,14 @@ public class NeuralNetwork {
 		return mat;
 	}
 
+	// Auxiliary method to turn a BlockRealMatrix to an ArrayRealVector - works only if one dimension of the matrix = 1.
+	public static ArrayRealVector convertVector( BlockRealMatrix mat ) throws IllegalArgumentException {
+		if( mat.getRowVector(0).getDimension() == 1 )
+			return new ArrayRealVector(mat.getColumnVector(0));
+		else
+			return new ArrayRealVector(mat.getRowVector(0));
+	}
+	
 	// Auxiliary method to dump a resultant array into an existing one considering the dummy 0th element = 1.
 	public static ArrayRealVector dump( ArrayRealVector finalVec, ArrayRealVector dumpVec ) {
 		finalVec.setEntry(0,1);

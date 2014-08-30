@@ -12,9 +12,9 @@ public class Preprocessor {
 		int counter = 0;
 		Path dir;
 		if( args.length > 1 )
-			dir = Paths.get("C:/Users/James/Programming/examplesTest/" + args[1]);
+			dir = Paths.get("C:/Users/James/Programming/CharacterRecognition/dumping folder/" + args[1]);
 		else 
-			dir = Paths.get("C:/Users/James/Programming/examplesTest");
+			dir = Paths.get("C:/Users/James/Programming/CharacterRecognition/dumping folder/");
 		
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
