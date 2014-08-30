@@ -4,8 +4,9 @@
 // Initial neural network implementation will have 100 units per layer, 2 hidden layers.
 
 /* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
-   Provide back propagation for partial derivatives
+   Partial derivatives
    Implement gradient descent or some other advanced algorithm
+   Regularization
 */ 
 
 import org.apache.commons.math3.linear.*;
@@ -51,7 +52,8 @@ public class NeuralNetwork {
 		Intermediary steps... (backprop, optimizing theta)
 		*/
 		NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(0)); // Testing the forward prop method with 1 example
-		NeuralNetwork.printDimensions(hypothesis);
+		NeuralNetwork.backPropagation(NeuralNetwork.trainingExamples.get(0)); // Testing the backward prop method with 1 example
+		
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
 	}
@@ -74,16 +76,18 @@ public class NeuralNetwork {
 	// Runs back propagation.
 	public static void backPropagation(Example ex) {
 		BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.hypothesis).subtract(ex.y));
+
 		
-		ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3.multiply(NeuralNetwork.act3.scalarMultiply(-1d).scalarAdd(1d)));
+		
+		ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act3
+			.scalarMultiply(-1d).scalarAdd(1d).getData())));
 		BlockRealMatrix error3 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta3.transpose().multiply(error4))
 			.ebeMultiply(derivative3));
 			
-		ArrayRealVector derivative2 = NeuralNetwork.convertVector(NeuralNetwork.act2.multiply(NeuralNetwork.act2.scalarMultiply(-1d).scalarAdd(1d)));
+		ArrayRealVector derivative2 = NeuralNetwork.convertVector(NeuralNetwork.act2).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act2
+			.scalarMultiply(-1d).scalarAdd(1d).getData())));
 		BlockRealMatrix error2 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta2.transpose().multiply(error3))
 			.ebeMultiply(derivative2));
-			
-		NeuralNetwork.printDimensions(derivative3); // ERROR DIMENSIONS ARE WRONG
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
