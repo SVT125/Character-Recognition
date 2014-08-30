@@ -25,19 +25,20 @@ public class NeuralNetwork {
 	static BlockRealMatrix theta1;
 	static BlockRealMatrix theta2;
 	static BlockRealMatrix theta3;
+	static BlockRealMatrix pDerivative1;
 	static BlockRealMatrix pDerivative2;
 	static BlockRealMatrix pDerivative3;
-	static BlockRealMatrix pDerivative4;
 	static BlockRealMatrix act2;
 	static BlockRealMatrix act3;
 	
 	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
-	static double colorNum = 0; // number of examples
+	static double colorNum = 0; // number of pixels across all examples
+	static int numExamples = 0; // number of examples
 	
 	public static void main( String[] args ) {
-		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/");
-		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/");
+		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/", "training");
+		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/", "test");
 		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.trainingExamples );
 		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.testExamples );
 		
@@ -73,12 +74,10 @@ public class NeuralNetwork {
 		NeuralNetwork.hypothesis = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
 	}
 	
-	// Runs back propagation.
+	// Runs back propagation, updates the partial derivative values for one call.
 	public static void backPropagation(Example ex) {
 		BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.hypothesis).subtract(ex.y));
 
-		
-		
 		ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act3
 			.scalarMultiply(-1d).scalarAdd(1d).getData())));
 		BlockRealMatrix error3 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta3.transpose().multiply(error4))
@@ -88,6 +87,14 @@ public class NeuralNetwork {
 			.scalarMultiply(-1d).scalarAdd(1d).getData())));
 		BlockRealMatrix error2 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta2.transpose().multiply(error3))
 			.ebeMultiply(derivative2));
+			
+		BlockRealMatrix delta1 = error2.multiply(NeuralNetwork.convertMatrix(ex.x).transpose());
+		BlockRealMatrix delta2 = error3.multiply(NeuralNetwork.act2.transpose());
+		BlockRealMatrix delta3 = error4.multiply(NeuralNetwork.act3.transpose());
+		
+		NeuralNetwork.pDerivative1 = delta1.scalarMultiply((double) (1/NeuralNetwork.numExamples));
+		NeuralNetwork.pDerivative2 = delta2.scalarMultiply((double) (1/NeuralNetwork.numExamples));
+		NeuralNetwork.pDerivative3 = delta3.scalarMultiply((double) (1/NeuralNetwork.numExamples));
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
@@ -123,13 +130,13 @@ public class NeuralNetwork {
 	}
 	
 	// Read in the examples' input and output by reading their RGB values and the name (per format), stored in a List.
-	public static List<Example> readExamples(String path ) {
-		int numExamples = 0;
+	public static List<Example> readExamples(String path, String set ) {
+		int loadedExamples = 0;
 		List<Example> ex = new ArrayList<Example>();
 		Path dir = Paths.get(path);
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
-				numExamples++;
+				loadedExamples++;
 				ArrayRealVector input = new ArrayRealVector(401);
 				String filePath = file.toString();
 				String subFilePath = filePath.substring(path.length(),filePath.length());
@@ -151,6 +158,9 @@ public class NeuralNetwork {
 		} catch (IOException | DirectoryIteratorException x) {
 			System.err.println(x);
 		}
+		if( set.equals( "training" ) )
+			NeuralNetwork.numExamples = loadedExamples;
+		
 		System.out.println( "Loaded in " + numExamples + " examples." );
 		return ex;
 	}
@@ -199,7 +209,7 @@ public class NeuralNetwork {
 	}
 
 	// Auxiliary method to turn a BlockRealMatrix to an ArrayRealVector - works only if one dimension of the matrix = 1.
-	public static ArrayRealVector convertVector( BlockRealMatrix mat ) throws IllegalArgumentException {
+	public static ArrayRealVector convertVector( BlockRealMatrix mat ) {
 		if( mat.getRowVector(0).getDimension() == 1 )
 			return new ArrayRealVector(mat.getColumnVector(0));
 		else
