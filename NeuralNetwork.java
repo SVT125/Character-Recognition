@@ -33,15 +33,17 @@ public class NeuralNetwork {
 	
 	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	
+	static double learningRate = 100; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of pixels across all examples
 	static int numExamples = 0; // number of examples
 	
-	public static void main( String[] args ) {
+	public static void main( String[] args ) throws Exception {
 		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/", "training");
 		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/", "test");
 		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.trainingExamples );
-		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.testExamples );
+		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( NeuralNetwork.testExamples );
+
 		
 		theta1 = NeuralNetwork.randInitialize( 1, 101, 401 );
 		System.out.println( "Randomly initialized first parameter vector." );
@@ -50,10 +52,9 @@ public class NeuralNetwork {
 		theta3 = NeuralNetwork.randInitialize( 1, 26, 101 );
 		System.out.println( "Randomly initialized third parameter vector." );
 
-		NeuralNetwork.hypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(0)); // Testing the forward prop method with 1 example
-		NeuralNetwork.backPropagation(NeuralNetwork.trainingExamples); // Testing the backward prop method with 1 example
-		NeuralNetwork.gradientDescent(5000); // Can adjust to iterate until convergence instead
+		NeuralNetwork.gradientDescent(100); // Can adjust to iterate until convergence instead
 		
+		NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
 	}
@@ -64,28 +65,31 @@ public class NeuralNetwork {
 		// sum over all examples
 		for( int i = 0; i < NeuralNetwork.numExamples; i++ ) { 
 			// sum over all elements of the hypothesis
-			for( int j = 0; i < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
-				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i)).getEntry(j,0))) + 
-					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(1 - NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i)).getEntry(j,0))) ); // define the hypothesis for each example
+			for( int j = 0; j < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
+				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(NeuralNetwork.hypothesis.getEntry(j,0))) + 
+					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(1 - NeuralNetwork.hypothesis.getEntry(j,0))) ); // define the hypothesis for each example
 			}
 		}
-		cost = (-1/NeuralNetwork.numExamples) * cost;
+		cost = (double)(-1)/(double) (NeuralNetwork.numExamples) * cost;
 		return cost;
 	}
 	
-	// Runs numIterations iterations of gradient descent using the class' partial derivative terms calculated from backprop.
-	public static void gradientDescent( int numIterations ) {
+	// Runs numIterations iterations of batch gradient descent using the class' partial derivative terms calculated from backprop and the learning rate.
+	public static void gradientDescent( int numIterations ) throws Exception {
 		for( int i = 0; i < numIterations; i++ ) {
+			for( Example ex : NeuralNetwork.trainingExamples ) 
+				NeuralNetwork.forwardPropagation( ex );
 			NeuralNetwork.backPropagation( NeuralNetwork.trainingExamples ); // updates partial derivatives
-			NeuralNetwork.theta1 = NeuralNetwork.theta1.subtract( NeuralNetwork.pDerivative1 );
-			NeuralNetwork.theta2 = NeuralNetwork.theta2.subtract( NeuralNetwork.pDerivative2 );
-			NeuralNetwork.theta3 = NeuralNetwork.theta3.subtract( NeuralNetwork.pDerivative3 );
+			NeuralNetwork.theta1 = NeuralNetwork.theta1.subtract( NeuralNetwork.pDerivative1.scalarMultiply(NeuralNetwork.learningRate) );
+			NeuralNetwork.theta2 = NeuralNetwork.theta2.subtract( NeuralNetwork.pDerivative2.scalarMultiply(NeuralNetwork.learningRate) );
+			NeuralNetwork.theta3 = NeuralNetwork.theta3.subtract( NeuralNetwork.pDerivative3.scalarMultiply(NeuralNetwork.learningRate) );
+			System.out.println( NeuralNetwork.calculateCost() );
 		}
 	}
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
-	public static BlockRealMatrix forwardPropagation(Example ex) {
+	public static void forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
 		NeuralNetwork.act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
@@ -95,16 +99,18 @@ public class NeuralNetwork {
 			NeuralNetwork.sigmoid(new ArrayRealVector(z3.getColumnVector(0)))));
 			
 		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
-		return NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
+		NeuralNetwork.hypothesis = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
 	}
 	
 	// Runs back propagation, updates the partial derivative values for one call.
-	public static void backPropagation(List<Example> examples) {
+	public static void backPropagation(List<Example> examples) throws Exception {
 		BlockRealMatrix delta1 = new BlockRealMatrix(101,401);
 		BlockRealMatrix delta2 = new BlockRealMatrix(101,101);
 		BlockRealMatrix delta3 = new BlockRealMatrix(26,101);
 		
 		for( Example ex : examples ) {
+			NeuralNetwork.forwardPropagation(ex);
+		
 			BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.hypothesis).subtract(ex.y));
 	
 			ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act3
@@ -121,10 +127,11 @@ public class NeuralNetwork {
 			delta2 = delta2.add(error3.multiply(NeuralNetwork.act2.transpose()));
 			delta3 = delta3.add(error4.multiply(NeuralNetwork.act3.transpose()));
 		}
+		double scalarDelta = 1/(double)NeuralNetwork.numExamples;
 		
-		NeuralNetwork.pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply((double) (1/NeuralNetwork.numExamples)).getData());
-		NeuralNetwork.pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply((double) (1/NeuralNetwork.numExamples)).getData());
-		NeuralNetwork.pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply((double) (1/NeuralNetwork.numExamples)).getData());
+		NeuralNetwork.pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply(scalarDelta).getData());
+		NeuralNetwork.pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply(scalarDelta).getData());
+		NeuralNetwork.pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply(scalarDelta).getData());
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
@@ -265,5 +272,17 @@ public class NeuralNetwork {
 	public static void printDimensions( BlockRealMatrix mat ) {
 		System.out.println( "Number of rows: " + mat.getColumnVector(0).getDimension() );
 		System.out.println( "Number of columns: " + mat.getRowVector(0).getDimension() );		
+	}
+	
+	// Auxiliary method to better examine the matrix's values.
+	public static void printMatrixToFile( BlockRealMatrix mat ) throws Exception {
+		PrintWriter writer = new PrintWriter("matrixdump.txt", "UTF-8");
+		double[][] matArray = mat.getData();
+		for( int i = 0; i < matArray.length; i++ ) {
+			for( int j = 0; j < matArray[i].length; j++ ) {
+				writer.print( matArray[i][j] + " " );
+			}
+			writer.println();
+		}
 	}
 }
