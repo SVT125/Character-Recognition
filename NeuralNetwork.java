@@ -53,14 +53,22 @@ public class NeuralNetwork {
 		theta3 = NeuralNetwork.randInitialize( 1, 26, 101 );
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
-
 		
-		NeuralNetwork.gradientDescent(50); // Can adjust to iterate until convergence instead
+		NeuralNetwork.train(args[0]); // Can adjust to iterate until convergence instead
 		
 		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
 		//NeuralNetwork.printMatrix(hypothesis);
+	}
+	
+	// Runs gradient descent until the cost is less than some epsilon.
+	public static void train(double epsilon) {
+		int iteration = 1;
+		while( NeuralNetwork.calculateCost() > epsilon ) {
+			NeuralNetwork.gradientDescent(1);
+			System.out.println( "Cost of iteration " + iteration++ + " is: " + NeuralNetwork.calculateCost());
+		}
 	}
 	
 	// Calculates the cost function.
@@ -85,7 +93,7 @@ public class NeuralNetwork {
 	}
 	
 	// Runs numIterations iterations of batch gradient descent using the class' partial derivative terms calculated from backprop and the learning rate.
-	public static void gradientDescent( int numIterations ) throws Exception {
+	public static void gradientDescent( int numIterations ) {
 		for( int i = 0; i < numIterations; i++ ) {
 			for( Example ex : NeuralNetwork.trainingExamples ) 
 				NeuralNetwork.hypothesis = NeuralNetwork.forwardPropagation( ex );
@@ -93,7 +101,6 @@ public class NeuralNetwork {
 			NeuralNetwork.theta1 = NeuralNetwork.theta1.subtract( NeuralNetwork.pDerivative1.scalarMultiply(NeuralNetwork.learningRate) );
 			NeuralNetwork.theta2 = NeuralNetwork.theta2.subtract( NeuralNetwork.pDerivative2.scalarMultiply(NeuralNetwork.learningRate) );
 			NeuralNetwork.theta3 = NeuralNetwork.theta3.subtract( NeuralNetwork.pDerivative3.scalarMultiply(NeuralNetwork.learningRate) );
-			System.out.println( "Cost of iteration " + i + " is: " + NeuralNetwork.calculateCost() );
 		}
 	}
 	
@@ -113,7 +120,7 @@ public class NeuralNetwork {
 	}
 	
 	// Runs back propagation, updates the partial derivative values for one call.
-	public static void backPropagation(List<Example> examples) throws Exception {
+	public static void backPropagation(List<Example> examples) {
 		BlockRealMatrix delta1 = new BlockRealMatrix(101,401);
 		BlockRealMatrix delta2 = new BlockRealMatrix(101,101);
 		BlockRealMatrix delta3 = new BlockRealMatrix(26,101);
