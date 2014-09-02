@@ -3,12 +3,6 @@
 
 // Initial neural network implementation will have 100 units per layer, 2 hidden layers.
 
-/* To-do: serialize the results, although running time for current >200 examples is only a few seconds.
-   Partial derivatives
-   Implement gradient descent or some other advanced algorithm
-   Regularization
-*/ 
-
 import org.apache.commons.math3.linear.*;
 import org.apache.commons.math3.analysis.function.Sigmoid;
 import java.nio.file.*;
@@ -35,6 +29,7 @@ public class NeuralNetwork {
 	static BlockRealMatrix testHypothesis = new BlockRealMatrix(26,1); // the test hypothesis when calculating the cost
 	
 	static double learningRate = .01; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
+	static double regularizationRate = .01; // regularization rate 
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of pixels across all examples
 	static int numExamples = 0; // number of examples
@@ -54,7 +49,7 @@ public class NeuralNetwork {
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
 		
-		NeuralNetwork.train(args[0]); // Can adjust to iterate until convergence instead
+		NeuralNetwork.train(Integer.parseInt(args[0])); // Can adjust to iterate until convergence instead
 		
 		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
@@ -74,21 +69,25 @@ public class NeuralNetwork {
 	// Calculates the cost function.
 	public static double calculateCost() {
 		double cost = 0;
+		double threshold = Math.pow(Math.E,-323); // pre-calculated value for loops
 		// sum over all examples
 		for( int i = 0; i < NeuralNetwork.numExamples; i++ ) { 
 			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i));
 			// sum over all elements of the hypothesis
 			for( int j = 0; j < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
 				double firstLogArgument = NeuralNetwork.testHypothesis.getEntry(j,0), secondLogArgument = 1 - NeuralNetwork.testHypothesis.getEntry(j,0);
-				if( firstLogArgument < Math.pow(Math.E,-323) )
-					firstLogArgument = Math.pow(Math.E,-323);
-				if( secondLogArgument < Math.pow(Math.E,-323) )
-					secondLogArgument = Math.pow(Math.E,-323);	
+				if( firstLogArgument < threshold )
+					firstLogArgument = threshold;
+				if( secondLogArgument < threshold )
+					secondLogArgument = threshold;	
 				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(firstLogArgument)) + 
 					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(secondLogArgument)) ); // define the hypothesis for each example
+				// regularization term
 			}
 		}
 		cost = ((double)(-1)/(double) (NeuralNetwork.numExamples)) * cost;
+		cost += (NeuralNetwork.regularizationRate/(2*NeuralNetwork.numExamples)) * (NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta1) + 
+			NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta2) + NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta3));
 		return cost;
 	}
 	
@@ -149,6 +148,13 @@ public class NeuralNetwork {
 		NeuralNetwork.pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply(scalarDelta).getData());
 		NeuralNetwork.pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply(scalarDelta).getData());
 		NeuralNetwork.pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply(scalarDelta).getData());
+		
+		// Regularize the partial derivatives
+		RealVector thetaRow1 = NeuralNetwork.theta1.getColumnVector(0), thetaRow2 = NeuralNetwork.theta2.getColumnVector(0),
+			thetaRow3 = NeuralNetwork.theta3.getColumnVector(0);
+		NeuralNetwork.pDerivative1.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative1.getColumnVector(0)).add(thetaRow1));
+		NeuralNetwork.pDerivative2.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative2.getColumnVector(0)).add(thetaRow2));
+		NeuralNetwork.pDerivative3.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative3.getColumnVector(0)).add(thetaRow3));
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
@@ -216,6 +222,17 @@ public class NeuralNetwork {
 		
 		System.out.println( "Loaded in " + loadedExamples + " " + set + " examples." );
 		return ex;
+	}
+	
+	// Sums the matrix whose elements have been squared.
+	public static double sumSquaredMatrix( BlockRealMatrix mat ) {
+		double sum = 0;
+		for( int i = 0; i < mat.getRowDimension(); i++ ) {
+			for( int j = 0; j < mat.getColumnDimension(); j++ ) {
+				sum += Math.pow(mat.getEntry(i,j),2);
+			}
+		}
+		return sum;
 	}
 	
 	// Sums the given vector, returns a double value.
