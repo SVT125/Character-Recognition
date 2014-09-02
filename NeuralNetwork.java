@@ -301,22 +301,4 @@ public class NeuralNetwork {
 			finalVec.setEntry(i,dumpVec.getEntry(i));
 		return finalVec;
 	}
-
-	// Auxiliary method to check the dimensions of the input matrix.
-	public static void printDimensions( BlockRealMatrix mat ) {
-		System.out.println( "Number of rows: " + mat.getColumnVector(0).getDimension() );
-		System.out.println( "Number of columns: " + mat.getRowVector(0).getDimension() );		
-	}
-	
-	// Auxiliary method to better examine the matrix's values.
-	public static void printMatrixToFile( BlockRealMatrix mat ) throws Exception {
-		PrintWriter writer = new PrintWriter("matrixdump.txt", "UTF-8");
-		double[][] matArray = mat.getData();
-		for( int i = 0; i < matArray.length; i++ ) {
-			for( int j = 0; j < matArray[i].length; j++ ) {
-				writer.print( matArray[i][j] + " " );
-			}
-			writer.println();
-		}
-	}
 }
