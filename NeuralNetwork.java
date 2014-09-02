@@ -34,7 +34,7 @@ public class NeuralNetwork {
 	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	static BlockRealMatrix testHypothesis = new BlockRealMatrix(26,1); // the test hypothesis when calculating the cost
 	
-	static double learningRate = 100; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
+	static double learningRate = .01; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of pixels across all examples
 	static int numExamples = 0; // number of examples
@@ -55,28 +55,29 @@ public class NeuralNetwork {
 		System.out.println("---------------------");
 
 		
-		NeuralNetwork.gradientDescent(2); // Can adjust to iterate until convergence instead
+		NeuralNetwork.gradientDescent(50); // Can adjust to iterate until convergence instead
 		
 		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
-		NeuralNetwork.printMatrix(hypothesis);
+		//NeuralNetwork.printMatrix(hypothesis);
 	}
 	
 	// Calculates the cost function.
-	// If hypothesis = 0, sets the hypothesis to a small near zero value. 
 	public static double calculateCost() {
 		double cost = 0;
 		// sum over all examples
-		for( int i = 0; i < 2; i++ ) { 
+		for( int i = 0; i < NeuralNetwork.numExamples; i++ ) { 
 			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i));
 			// sum over all elements of the hypothesis
 			for( int j = 0; j < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
-				double logArgument = NeuralNetwork.hypothesis.getEntry(j,0);
-				if( NeuralNetwork.hypothesis.getEntry(j,0) == 0d )
-					logArgument = 1e-5;
-				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(logArgument)) + 
-					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(1 - logArgument)) );
+				double firstLogArgument = NeuralNetwork.testHypothesis.getEntry(j,0), secondLogArgument = 1 - NeuralNetwork.testHypothesis.getEntry(j,0);
+				if( firstLogArgument < Math.pow(Math.E,-323) )
+					firstLogArgument = Math.pow(Math.E,-323);
+				if( secondLogArgument < Math.pow(Math.E,-323) )
+					secondLogArgument = Math.pow(Math.E,-323);	
+				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(firstLogArgument)) + 
+					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(secondLogArgument)) ); // define the hypothesis for each example
 			}
 		}
 		cost = ((double)(-1)/(double) (NeuralNetwork.numExamples)) * cost;
@@ -145,7 +146,7 @@ public class NeuralNetwork {
 	
 	// Sigmoid function that takes an ArrayRealVector.
 	public static ArrayRealVector sigmoid( ArrayRealVector arg ) {
-		return arg.mapToSelf( new Sigmoid() );
+		return arg.mapToSelf( new Sigmoid(1e-323,1-(1e-323)) );
 	}
 	
 	// Randomly initialize each of the theta values by [negEpsilon, epsilon] or [-epsilon, epsilon].
