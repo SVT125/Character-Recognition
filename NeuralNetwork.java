@@ -32,6 +32,7 @@ public class NeuralNetwork {
 	static BlockRealMatrix act3;
 	
 	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
+	static BlockRealMatrix testHypothesis = new BlockRealMatrix(26,1); // the test hypothesis when calculating the cost
 	
 	static double learningRate = 100; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
@@ -41,8 +42,8 @@ public class NeuralNetwork {
 	public static void main( String[] args ) throws Exception {
 		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/", "training");
 		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/", "test");
-		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( NeuralNetwork.trainingExamples );
-		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( NeuralNetwork.testExamples );
+		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( trainingExamples );
+		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( testExamples );
 
 		
 		theta1 = NeuralNetwork.randInitialize( 1, 101, 401 );
@@ -51,26 +52,34 @@ public class NeuralNetwork {
 		System.out.println( "Randomly initialized second parameter vector." );
 		theta3 = NeuralNetwork.randInitialize( 1, 26, 101 );
 		System.out.println( "Randomly initialized third parameter vector." );
+		System.out.println("---------------------");
 
-		NeuralNetwork.gradientDescent(100); // Can adjust to iterate until convergence instead
 		
-		NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
+		NeuralNetwork.gradientDescent(2); // Can adjust to iterate until convergence instead
+		
+		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
+		NeuralNetwork.printMatrix(hypothesis);
 	}
 	
 	// Calculates the cost function.
+	// If hypothesis = 0, sets the hypothesis to a small near zero value. 
 	public static double calculateCost() {
 		double cost = 0;
 		// sum over all examples
-		for( int i = 0; i < NeuralNetwork.numExamples; i++ ) { 
+		for( int i = 0; i < 2; i++ ) { 
+			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i));
 			// sum over all elements of the hypothesis
 			for( int j = 0; j < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
-				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(NeuralNetwork.hypothesis.getEntry(j,0))) + 
-					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(1 - NeuralNetwork.hypothesis.getEntry(j,0))) ); // define the hypothesis for each example
+				double logArgument = NeuralNetwork.hypothesis.getEntry(j,0);
+				if( NeuralNetwork.hypothesis.getEntry(j,0) == 0d )
+					logArgument = 1e-5;
+				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(logArgument)) + 
+					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(1 - logArgument)) );
 			}
 		}
-		cost = (double)(-1)/(double) (NeuralNetwork.numExamples) * cost;
+		cost = ((double)(-1)/(double) (NeuralNetwork.numExamples)) * cost;
 		return cost;
 	}
 	
@@ -78,18 +87,18 @@ public class NeuralNetwork {
 	public static void gradientDescent( int numIterations ) throws Exception {
 		for( int i = 0; i < numIterations; i++ ) {
 			for( Example ex : NeuralNetwork.trainingExamples ) 
-				NeuralNetwork.forwardPropagation( ex );
+				NeuralNetwork.hypothesis = NeuralNetwork.forwardPropagation( ex );
 			NeuralNetwork.backPropagation( NeuralNetwork.trainingExamples ); // updates partial derivatives
 			NeuralNetwork.theta1 = NeuralNetwork.theta1.subtract( NeuralNetwork.pDerivative1.scalarMultiply(NeuralNetwork.learningRate) );
 			NeuralNetwork.theta2 = NeuralNetwork.theta2.subtract( NeuralNetwork.pDerivative2.scalarMultiply(NeuralNetwork.learningRate) );
 			NeuralNetwork.theta3 = NeuralNetwork.theta3.subtract( NeuralNetwork.pDerivative3.scalarMultiply(NeuralNetwork.learningRate) );
-			System.out.println( NeuralNetwork.calculateCost() );
+			System.out.println( "Cost of iteration " + i + " is: " + NeuralNetwork.calculateCost() );
 		}
 	}
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
-	public static void forwardPropagation(Example ex) {
+	public static BlockRealMatrix forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
 		NeuralNetwork.act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
@@ -99,7 +108,7 @@ public class NeuralNetwork {
 			NeuralNetwork.sigmoid(new ArrayRealVector(z3.getColumnVector(0)))));
 			
 		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
-		NeuralNetwork.hypothesis = NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
+		return NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
 	}
 	
 	// Runs back propagation, updates the partial derivative values for one call.
@@ -197,7 +206,7 @@ public class NeuralNetwork {
 		if( set.equals( "training" ) )
 			NeuralNetwork.numExamples = loadedExamples;
 		
-		System.out.println( "Loaded in " + loadedExamples + " examples." );
+		System.out.println( "Loaded in " + loadedExamples + " " + set + " examples." );
 		return ex;
 	}
 	
