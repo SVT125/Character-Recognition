@@ -28,8 +28,8 @@ public class NeuralNetwork {
 	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
 	static BlockRealMatrix testHypothesis = new BlockRealMatrix(26,1); // the test hypothesis when calculating the cost
 	
-	static double learningRate = .01; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence
-	static double regularizationRate = .01; // regularization rate 
+	static double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
+	static double regularizationRate; // regularization rate, default .01.
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of pixels across all examples
 	static int numExamples = 0; // number of examples
@@ -49,12 +49,14 @@ public class NeuralNetwork {
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
 		
-		NeuralNetwork.train(Integer.parseInt(args[0])); // Can adjust to iterate until convergence instead
+		learningRate = Double.parseDouble(args[1]); 
+		regularizationRate = Double.parseDouble(args[2]);
+		
+		NeuralNetwork.train(Integer.parseInt(args[0]));
 		
 		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
 		System.out.println("---------------------");
 		NeuralNetwork.printHypothesis(hypothesis);
-		//NeuralNetwork.printMatrix(hypothesis);
 	}
 	
 	// Runs gradient descent until the cost is less than some epsilon.
@@ -82,7 +84,6 @@ public class NeuralNetwork {
 					secondLogArgument = threshold;	
 				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(firstLogArgument)) + 
 					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(secondLogArgument)) ); // define the hypothesis for each example
-				// regularization term
 			}
 		}
 		cost = ((double)(-1)/(double) (NeuralNetwork.numExamples)) * cost;
@@ -256,26 +257,6 @@ public class NeuralNetwork {
 			}
 		}
 		System.out.println( "The predicted character is: " + (char) (index+65) );
-	}
-	
-	// Auxiliary method to check proper vector accesses.
-	// Prints the matrix by creating an 2d double array primitive to loop over, works for non n x n matrices.
-	public static void printMatrix( BlockRealMatrix brm ) {
-		double[][] mat = brm.getData();
-		for( int i = 0; i < mat.length; i++ ) {
-			for( int j = 0; j < mat[i].length; j++ ) {
-				System.out.print( mat[i][j] + " " );
-			}
-			System.out.println();
-		}
-	}
-	
-	// Auxiliary method to print the vector.
-	public static void printVector( ArrayRealVector vec ) {
-		double[] array = vec.toArray();
-		for( int i = 0; i < array.length; i++ ) {
-			System.out.println( array[i] );
-		}
 	}
 	
 	// Auxiliary method to turn an ArrayRealVector to a BlockRealMatrix.
