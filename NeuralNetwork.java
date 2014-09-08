@@ -25,14 +25,18 @@ public class NeuralNetwork {
 	static BlockRealMatrix act2;
 	static BlockRealMatrix act3;
 	
-	static BlockRealMatrix hypothesis = new BlockRealMatrix(26,1); // layer 4, final vector result
-	static BlockRealMatrix testHypothesis = new BlockRealMatrix(26,1); // the test hypothesis when calculating the cost
+	static BlockRealMatrix hypothesis = new BlockRealMatrix(numOutputs,1); // layer 4, final vector result
+	static BlockRealMatrix testHypothesis = new BlockRealMatrix(numOutputs,1); // the test hypothesis when calculating the cost
 	
 	static double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
 	static double regularizationRate; // regularization rate, default .01.
 	static double colorSum = 0; // sum of all numbers r, g, b across all examples
 	static double colorNum = 0; // number of pixels across all examples
 	static int numExamples = 0; // number of examples
+	
+	static int numUnits = 100;
+	static int numFeatures = 400;
+	static int numOutputs = numOutputs;
 	
 	public static void main( String[] args ) throws Exception {
 		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/", "training");
@@ -41,11 +45,11 @@ public class NeuralNetwork {
 		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( testExamples );
 
 		
-		theta1 = NeuralNetwork.randInitialize( 1, 101, 401 );
+		theta1 = NeuralNetwork.randInitialize( 1, numUnits + 1, numFeatures + 1 );
 		System.out.println( "Randomly initialized first parameter vector." );
-		theta2 = NeuralNetwork.randInitialize( 1, 101, 101 );
+		theta2 = NeuralNetwork.randInitialize( 1, numUnits + 1, numUnits + 1 );
 		System.out.println( "Randomly initialized second parameter vector." );
-		theta3 = NeuralNetwork.randInitialize( 1, 26, 101 );
+		theta3 = NeuralNetwork.randInitialize( 1, numOutputs, numUnits + 1 );
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
 		
@@ -73,22 +77,22 @@ public class NeuralNetwork {
 		double cost = 0;
 		double threshold = Math.pow(Math.E,-323); // pre-calculated value for loops
 		// sum over all examples
-		for( int i = 0; i < NeuralNetwork.numExamples; i++ ) { 
-			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(NeuralNetwork.trainingExamples.get(i));
+		for( int i = 0; i < numExamples; i++ ) { 
+			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(trainingExamples.get(i));
 			// sum over all elements of the hypothesis
-			for( int j = 0; j < NeuralNetwork.hypothesis.getRowDimension(); j++ ) {
-				double firstLogArgument = NeuralNetwork.testHypothesis.getEntry(j,0), secondLogArgument = 1 - NeuralNetwork.testHypothesis.getEntry(j,0);
+			for( int j = 0; j < hypothesis.getRowDimension(); j++ ) {
+				double firstLogArgument = testHypothesis.getEntry(j,0), secondLogArgument = 1 - testHypothesis.getEntry(j,0);
 				if( firstLogArgument < threshold )
 					firstLogArgument = threshold;
 				if( secondLogArgument < threshold )
 					secondLogArgument = threshold;	
-				cost += ( (NeuralNetwork.trainingExamples.get(i).y.getEntry(j) * Math.log(firstLogArgument)) + 
-					((1 - NeuralNetwork.trainingExamples.get(i).y.getEntry(j)) * Math.log(secondLogArgument)) ); // define the hypothesis for each example
+				cost += ( (trainingExamples.get(i).y.getEntry(j) * Math.log(firstLogArgument)) + 
+					((1 - trainingExamples.get(i).y.getEntry(j)) * Math.log(secondLogArgument)) ); // define the hypothesis for each example
 			}
 		}
-		cost = ((double)(-1)/(double) (NeuralNetwork.numExamples)) * cost;
-		cost += (NeuralNetwork.regularizationRate/(2*NeuralNetwork.numExamples)) * (NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta1) + 
-			NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta2) + NeuralNetwork.sumSquaredMatrix(NeuralNetwork.theta3));
+		cost = ((double)(-1)/(double) (numExamples)) * cost;
+		cost += (regularizationRate/(2*numExamples)) * (NeuralNetwork.sumSquaredMatrix(theta1) + 
+			NeuralNetwork.sumSquaredMatrix(theta2) + NeuralNetwork.sumSquaredMatrix(theta3));
 		return cost;
 	}
 	
@@ -98,64 +102,64 @@ public class NeuralNetwork {
 			for( Example ex : NeuralNetwork.trainingExamples ) 
 				NeuralNetwork.hypothesis = NeuralNetwork.forwardPropagation( ex );
 			NeuralNetwork.backPropagation( NeuralNetwork.trainingExamples ); // updates partial derivatives
-			NeuralNetwork.theta1 = NeuralNetwork.theta1.subtract( NeuralNetwork.pDerivative1.scalarMultiply(NeuralNetwork.learningRate) );
-			NeuralNetwork.theta2 = NeuralNetwork.theta2.subtract( NeuralNetwork.pDerivative2.scalarMultiply(NeuralNetwork.learningRate) );
-			NeuralNetwork.theta3 = NeuralNetwork.theta3.subtract( NeuralNetwork.pDerivative3.scalarMultiply(NeuralNetwork.learningRate) );
+			theta1 = theta1.subtract( pDerivative1.scalarMultiply(learningRate) );
+			theta2 = theta2.subtract( pDerivative2.scalarMultiply(learningRate) );
+			theta3 = theta3.subtract( pDerivative3.scalarMultiply(learningRate) );
 		}
 	}
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
 	public static BlockRealMatrix forwardPropagation(Example ex) {
-		BlockRealMatrix z2 = NeuralNetwork.theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
-		NeuralNetwork.act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+		BlockRealMatrix z2 = theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
+		act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(numUnits + 1),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
 		
-		BlockRealMatrix z3 = NeuralNetwork.theta2.multiply(act2);
-		NeuralNetwork.act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(101),
+		BlockRealMatrix z3 = theta2.multiply(act2);
+		act3 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(numUnits + 1),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z3.getColumnVector(0)))));
 			
-		BlockRealMatrix z4 = NeuralNetwork.theta3.multiply(act3);
+		BlockRealMatrix z4 = theta3.multiply(act3);
 		return NeuralNetwork.convertMatrix(NeuralNetwork.sigmoid(new ArrayRealVector(z4.getColumnVector(0))));
 	}
 	
 	// Runs back propagation, updates the partial derivative values for one call.
 	public static void backPropagation(List<Example> examples) {
-		BlockRealMatrix delta1 = new BlockRealMatrix(101,401);
-		BlockRealMatrix delta2 = new BlockRealMatrix(101,101);
-		BlockRealMatrix delta3 = new BlockRealMatrix(26,101);
+		BlockRealMatrix delta1 = new BlockRealMatrix(numUnits + 1,numFeatures + 1);
+		BlockRealMatrix delta2 = new BlockRealMatrix(numUnits + 1,numUnits + 1);
+		BlockRealMatrix delta3 = new BlockRealMatrix(numOutputs,numUnits + 1);
 		
 		for( Example ex : examples ) {
 			NeuralNetwork.forwardPropagation(ex);
 		
-			BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.hypothesis).subtract(ex.y));
+			BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(hypothesis).subtract(ex.y));
 	
-			ArrayRealVector derivative3 = NeuralNetwork.convertVector(NeuralNetwork.act3).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act3
+			ArrayRealVector derivative3 = NeuralNetwork.convertVector(act3).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(act3
 				.scalarMultiply(-1d).scalarAdd(1d).getData())));
-			BlockRealMatrix error3 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta3.transpose().multiply(error4))
+			BlockRealMatrix error3 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(theta3.transpose().multiply(error4))
 				.ebeMultiply(derivative3));
 			
-			ArrayRealVector derivative2 = NeuralNetwork.convertVector(NeuralNetwork.act2).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(NeuralNetwork.act2
+			ArrayRealVector derivative2 = NeuralNetwork.convertVector(act2).ebeMultiply(NeuralNetwork.convertVector(new BlockRealMatrix(act2
 				.scalarMultiply(-1d).scalarAdd(1d).getData())));
-			BlockRealMatrix error2 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(NeuralNetwork.theta2.transpose().multiply(error3))
+			BlockRealMatrix error2 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(theta2.transpose().multiply(error3))
 				.ebeMultiply(derivative2));
 				
 			delta1 = delta1.add(error2.multiply(NeuralNetwork.convertMatrix(ex.x).transpose()));
-			delta2 = delta2.add(error3.multiply(NeuralNetwork.act2.transpose()));
-			delta3 = delta3.add(error4.multiply(NeuralNetwork.act3.transpose()));
+			delta2 = delta2.add(error3.multiply(act2.transpose()));
+			delta3 = delta3.add(error4.multiply(act3.transpose()));
 		}
 		double scalarDelta = 1/(double)NeuralNetwork.numExamples;
 		
-		NeuralNetwork.pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply(scalarDelta).getData());
-		NeuralNetwork.pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply(scalarDelta).getData());
-		NeuralNetwork.pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply(scalarDelta).getData());
+		pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply(scalarDelta).getData());
+		pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply(scalarDelta).getData());
+		pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply(scalarDelta).getData());
 		
 		// Regularize the partial derivatives
 		RealVector thetaRow1 = NeuralNetwork.theta1.getColumnVector(0), thetaRow2 = NeuralNetwork.theta2.getColumnVector(0),
 			thetaRow3 = NeuralNetwork.theta3.getColumnVector(0);
-		NeuralNetwork.pDerivative1.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative1.getColumnVector(0)).add(thetaRow1));
-		NeuralNetwork.pDerivative2.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative2.getColumnVector(0)).add(thetaRow2));
-		NeuralNetwork.pDerivative3.setColumnVector(0,new ArrayRealVector(NeuralNetwork.pDerivative3.getColumnVector(0)).add(thetaRow3));
+		pDerivative1.setColumnVector(0,new ArrayRealVector(pDerivative1.getColumnVector(0)).add(thetaRow1));
+		pDerivative2.setColumnVector(0,new ArrayRealVector(pDerivative2.getColumnVector(0)).add(thetaRow2));
+		pDerivative3.setColumnVector(0,new ArrayRealVector(pDerivative3.getColumnVector(0)).add(thetaRow3));
 	}
 	
 	// Sigmoid function that takes an ArrayRealVector.
@@ -178,10 +182,10 @@ public class NeuralNetwork {
 	
 	// Normalize the examples' features.
 	public static List<Example> meanNormalize( List<Example> exList ) {
-		double colorMean = NeuralNetwork.colorSum / NeuralNetwork.colorNum;
+		double colorMean = colorSum / colorNum;
 		for( Example ex : exList ) {
 			ArrayRealVector vec = ex.x;
-			for( int i = 0; i < 401; i++ ) {
+			for( int i = 0; i < numFeatures + 1; i++ ) {
 				vec.setEntry(i,(vec.getEntry(i)-colorMean)/768);
 			}
 			ex.x = vec;
@@ -197,7 +201,7 @@ public class NeuralNetwork {
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
 			for (Path file: stream) {
 				loadedExamples++;
-				ArrayRealVector input = new ArrayRealVector(401);
+				ArrayRealVector input = new ArrayRealVector(numFeatures + 1);
 				String filePath = file.toString();
 				String subFilePath = filePath.substring(path.length(),filePath.length());
 				char letter = subFilePath.charAt(7); // by the format "exampleL0001.jpg".
@@ -207,8 +211,8 @@ public class NeuralNetwork {
 						int colorMean = bim.getRGB(i,j); 
 						Color c = new Color(colorMean);
 						int sumColor = c.getRed() + c.getGreen() + c.getBlue();
-						NeuralNetwork.colorSum += sumColor;
-						NeuralNetwork.colorNum++;
+						colorSum += sumColor;
+						colorNum++;
 						input.addToEntry( (i+1)*(j+1), sumColor); // will normalize using meanNormalize()
 					}
 				}
@@ -219,7 +223,7 @@ public class NeuralNetwork {
 			System.err.println(x);
 		}
 		if( set.equals( "training" ) )
-			NeuralNetwork.numExamples = loadedExamples;
+			numExamples = loadedExamples;
 		
 		System.out.println( "Loaded in " + loadedExamples + " " + set + " examples." );
 		return ex;
