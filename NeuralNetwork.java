@@ -12,35 +12,28 @@ import java.awt.Color;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
-public class NeuralNetwork {
-	static List<Example> trainingExamples;
-	static List<Example> testExamples;
+public class NeuralNetwork implements MLAlgorithm {
+	 List<Example> trainingExamples;
+	 List<Example> testExamples;
 	
-	static BlockRealMatrix theta1;
-	static BlockRealMatrix theta2;
-	static BlockRealMatrix theta3;
-	static BlockRealMatrix pDerivative1;
-	static BlockRealMatrix pDerivative2;
-	static BlockRealMatrix pDerivative3;
-	static BlockRealMatrix act2;
-	static BlockRealMatrix act3;
+	BlockRealMatrix theta1, theta2, theta3, pDerivative1, pDerivative2, pDerivative3, act2, act3;
 	
-	static BlockRealMatrix hypothesis = new BlockRealMatrix(numOutputs,1); // layer 4, final vector result
-	static BlockRealMatrix testHypothesis = new BlockRealMatrix(numOutputs,1); // the test hypothesis when calculating the cost
+	BlockRealMatrix hypothesis = new BlockRealMatrix(numOutputs,1); // layer 4, final vector result
+	BlockRealMatrix testHypothesis = new BlockRealMatrix(numOutputs,1); // the test hypothesis when calculating the cost
 	
-	static double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
-	static double regularizationRate; // regularization rate, default .01.
-	static double colorSum = 0; // sum of all numbers r, g, b across all examples
-	static double colorNum = 0; // number of pixels across all examples
-	static int numExamples = 0; // number of examples
+	double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
+	double regularizationRate; // regularization rate, default .01.
+	double colorSum = 0; // sum of all numbers r, g, b across all examples
+	double colorNum = 0; // number of pixels across all examples
+	int numExamples = 0; // number of examples
 	
-	static int numUnits = 100;
-	static int numFeatures = 400;
-	static int numOutputs = numOutputs;
+	int numUnits, numFeatures;
+	int numOutputs = numOutputs;
 	
-	public static void main( String[] args ) throws Exception {
-		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/trainingexamples/", "training");
-		NeuralNetwork.testExamples = NeuralNetwork.readExamples("C:/Users/James/Programming/CharacterRecognition/testexamples/", "test");
+	public NeuralNetwork(String trainingFileName, String testFileName, int numUnits, int numFeatures,
+		double learningRate, double regRate, double numOutputs, int numRuns) {
+		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples(trainingFileName, "training");
+		NeuralNetwork.testExamples = NeuralNetwork.readExamples(testFileName, "test");
 		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( trainingExamples );
 		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( testExamples );
 
@@ -53,14 +46,16 @@ public class NeuralNetwork {
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
 		
-		learningRate = Double.parseDouble(args[1]); 
-		regularizationRate = Double.parseDouble(args[2]);
+		this.learningRate = learningRate; 
+		this.regularizationRate = regRate;
+		this.numUnits = numUnits;
+		this.numFeatures = numFeatures;
+		this.numOutputs = numOutputs;
 		
-		NeuralNetwork.train(Integer.parseInt(args[0]));
+		NeuralNetwork.train(numRuns);
 		
 		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
-		System.out.println("---------------------");
-		NeuralNetwork.printHypothesis(hypothesis);
+				
 	}
 	
 	// Runs gradient descent until the cost is less than some epsilon.
