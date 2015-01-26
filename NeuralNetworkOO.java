@@ -13,42 +13,32 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
 public class NeuralNetwork {
-	static List<Example> trainingExamples;
-	static List<Example> testExamples;
+	 List<Example> trainingExamples;
+	 List<Example> testExamples;
 	
-	static BlockRealMatrix theta1;
-	static BlockRealMatrix theta2;
-	static BlockRealMatrix theta3;
-	static BlockRealMatrix pDerivative1;
-	static BlockRealMatrix pDerivative2;
-	static BlockRealMatrix pDerivative3;
-	static BlockRealMatrix act2;
-	static BlockRealMatrix act3;
+	BlockRealMatrix theta1, theta2, theta3, pDerivative1, pDerivative2, pDerivative3, act2, act3;
 	
-	static BlockRealMatrix hypothesis = new BlockRealMatrix(numOutputs,1); // layer 4, final vector result
-	static BlockRealMatrix testHypothesis = new BlockRealMatrix(numOutputs,1); // the test hypothesis when calculating the cost
+	BlockRealMatrix hypothesis; // layer 4, final vector result
+	BlockRealMatrix testHypothesis; // the test hypothesis when calculating the cost
 	
-	static double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
-	static double regularizationRate; // regularization rate, default .01.
-	static double colorSum = 0; // sum of all numbers r, g, b across all examples
-	static double colorNum = 0; // number of pixels across all examples
-	static int numExamples = 0; // number of examples
+	double learningRate; // rate multiplied by the partial derivative. Greater values mean faster convergence but possible divergence, default .01.
+	double regularizationRate; // regularization rate, default .01.
+	double colorSum = 0; // sum of all numbers r, g, b across all examples
+	double colorNum = 0; // number of pixels across all examples
+	int numExamples = 0; // number of examples
 	
-	static int numUnits = 100;
-	static int numFeatures = 400;
-	static int numOutputs = numOutputs;
+	int numUnits, numFeatures, numOutputs;
 	
-	public static void main( String[] args ) throws Exception {
-		System.out.println("The directory where the training set of characters are stored: ");
-		String trainingDirectory = new BufferedReader(new InputStreamReader(System.in)).readLine();
-		NeuralNetwork.trainingExamples = NeuralNetwork.readExamples(directory, "training");
+	public NeuralNetwork(String trainingFileName, String testFileName, int numUnits, int numFeatures,
+		double learningRate, double regRate, int numOutputs, int numRuns) {
+		this.trainingExamples = readExamples(trainingFileName, "training");
+		this.testExamples = readExamples(testFileName, "test");
+		this.trainingExamples = meanNormalize( trainingExamples );
+		this.testExamples = meanNormalize( testExamples );
 		
-		System.out.println("The directory where the test set of characters are stored: ");
-		String testDirectory = new BufferedReader(new InputStreamReader(System.in)).readLine();
-		NeuralNetwork.testExamples = NeuralNetwork.readExamples(testDirectory, "test");
-		NeuralNetwork.trainingExamples = NeuralNetwork.meanNormalize( trainingExamples );
-		NeuralNetwork.testExamples = NeuralNetwork.meanNormalize( testExamples );
-
+		this.numOutputs = numOutputs;
+		this.hypothesis = new BlockRealMatrix(numOutputs,1);
+		this.testHypothesis = new BlockRealMatrix(numOutputs,1);
 		
 		theta1 = NeuralNetwork.randInitialize( 1, numUnits + 1, numFeatures + 1 );
 		System.out.println( "Randomly initialized first parameter vector." );
@@ -58,32 +48,34 @@ public class NeuralNetwork {
 		System.out.println( "Randomly initialized third parameter vector." );
 		System.out.println("---------------------");
 		
-		learningRate = Double.parseDouble(args[1]); 
-		regularizationRate = Double.parseDouble(args[2]);
+		this.learningRate = learningRate; 
+		this.regularizationRate = regRate;
+		this.numUnits = numUnits;
+		this.numFeatures = numFeatures;
+		this.numOutputs = numOutputs;
 		
-		NeuralNetwork.train(Integer.parseInt(args[0]));
+		train(numRuns);
 		
-		hypothesis = NeuralNetwork.forwardPropagation( NeuralNetwork.testExamples.get(0));
-		System.out.println("---------------------");
-		NeuralNetwork.printHypothesis(hypothesis);
+		hypothesis = forwardPropagation( testExamples.get(0));
+				
 	}
 	
 	// Runs gradient descent until the cost is less than some epsilon.
-	public static void train(double epsilon) {
+	public void train(double epsilon) {
 		int iteration = 1;
-		while( NeuralNetwork.calculateCost() > epsilon ) {
-			NeuralNetwork.gradientDescent(1);
-			System.out.println( "Cost of iteration " + iteration++ + " is: " + NeuralNetwork.calculateCost());
+		while( calculateCost() > epsilon ) {
+			gradientDescent(1);
+			System.out.println( "Cost of iteration " + iteration++ + " is: " + calculateCost());
 		}
 	}
 	
 	// Calculates the cost function.
-	public static double calculateCost() {
+	public double calculateCost() {
 		double cost = 0;
 		double threshold = Math.pow(Math.E,-323); // pre-calculated value for loops
 		// sum over all examples
 		for( int i = 0; i < numExamples; i++ ) { 
-			NeuralNetwork.testHypothesis = NeuralNetwork.forwardPropagation(trainingExamples.get(i));
+			this.testHypothesis = forwardPropagation(trainingExamples.get(i));
 			// sum over all elements of the hypothesis
 			for( int j = 0; j < hypothesis.getRowDimension(); j++ ) {
 				double firstLogArgument = testHypothesis.getEntry(j,0), secondLogArgument = 1 - testHypothesis.getEntry(j,0);
@@ -102,11 +94,11 @@ public class NeuralNetwork {
 	}
 	
 	// Runs numIterations iterations of batch gradient descent using the class' partial derivative terms calculated from backprop and the learning rate.
-	public static void gradientDescent( int numIterations ) {
+	public void gradientDescent( int numIterations ) {
 		for( int i = 0; i < numIterations; i++ ) {
-			for( Example ex : NeuralNetwork.trainingExamples ) 
-				NeuralNetwork.hypothesis = NeuralNetwork.forwardPropagation( ex );
-			NeuralNetwork.backPropagation( NeuralNetwork.trainingExamples ); // updates partial derivatives
+			for( Example ex : this.trainingExamples ) 
+				this.hypothesis = forwardPropagation( ex );
+			backPropagation( this.trainingExamples ); // updates partial derivatives
 			theta1 = theta1.subtract( pDerivative1.scalarMultiply(learningRate) );
 			theta2 = theta2.subtract( pDerivative2.scalarMultiply(learningRate) );
 			theta3 = theta3.subtract( pDerivative3.scalarMultiply(learningRate) );
@@ -115,7 +107,7 @@ public class NeuralNetwork {
 	
 	// Runs forward propagation, given this particular neural network.
 	// Can readjust to take arguments of number of units and layers.
-	public static BlockRealMatrix forwardPropagation(Example ex) {
+	public BlockRealMatrix forwardPropagation(Example ex) {
 		BlockRealMatrix z2 = theta1.multiply(NeuralNetwork.convertMatrix(ex.x));
 		act2 = NeuralNetwork.convertMatrix(NeuralNetwork.dump(new ArrayRealVector(numUnits + 1),
 			NeuralNetwork.sigmoid(new ArrayRealVector(z2.getColumnVector(0)))));
@@ -129,13 +121,13 @@ public class NeuralNetwork {
 	}
 	
 	// Runs back propagation, updates the partial derivative values for one call.
-	public static void backPropagation(List<Example> examples) {
+	public void backPropagation(List<Example> examples) {
 		BlockRealMatrix delta1 = new BlockRealMatrix(numUnits + 1,numFeatures + 1);
 		BlockRealMatrix delta2 = new BlockRealMatrix(numUnits + 1,numUnits + 1);
 		BlockRealMatrix delta3 = new BlockRealMatrix(numOutputs,numUnits + 1);
 		
 		for( Example ex : examples ) {
-			NeuralNetwork.forwardPropagation(ex);
+			forwardPropagation(ex);
 		
 			BlockRealMatrix error4 = NeuralNetwork.convertMatrix(NeuralNetwork.convertVector(hypothesis).subtract(ex.y));
 	
@@ -153,15 +145,15 @@ public class NeuralNetwork {
 			delta2 = delta2.add(error3.multiply(act2.transpose()));
 			delta3 = delta3.add(error4.multiply(act3.transpose()));
 		}
-		double scalarDelta = 1/(double)NeuralNetwork.numExamples;
+		double scalarDelta = 1/(double)this.numExamples;
 		
 		pDerivative1 = new BlockRealMatrix(delta1.scalarMultiply(scalarDelta).getData());
 		pDerivative2 = new BlockRealMatrix(delta2.scalarMultiply(scalarDelta).getData());
 		pDerivative3 = new BlockRealMatrix(delta3.scalarMultiply(scalarDelta).getData());
 		
 		// Regularize the partial derivatives
-		RealVector thetaRow1 = NeuralNetwork.theta1.getColumnVector(0), thetaRow2 = NeuralNetwork.theta2.getColumnVector(0),
-			thetaRow3 = NeuralNetwork.theta3.getColumnVector(0);
+		RealVector thetaRow1 = this.theta1.getColumnVector(0), thetaRow2 = this.theta2.getColumnVector(0),
+		thetaRow3 = this.theta3.getColumnVector(0);
 		pDerivative1.setColumnVector(0,new ArrayRealVector(pDerivative1.getColumnVector(0)).add(thetaRow1));
 		pDerivative2.setColumnVector(0,new ArrayRealVector(pDerivative2.getColumnVector(0)).add(thetaRow2));
 		pDerivative3.setColumnVector(0,new ArrayRealVector(pDerivative3.getColumnVector(0)).add(thetaRow3));
@@ -186,7 +178,7 @@ public class NeuralNetwork {
 	}
 	
 	// Normalize the examples' features.
-	public static List<Example> meanNormalize( List<Example> exList ) {
+	public List<Example> meanNormalize( List<Example> exList ) {
 		double colorMean = colorSum / colorNum;
 		for( Example ex : exList ) {
 			ArrayRealVector vec = ex.x;
@@ -199,7 +191,7 @@ public class NeuralNetwork {
 	}
 	
 	// Read in the examples' input and output by reading their RGB values and the name (per format), stored in a List.
-	public static List<Example> readExamples(String path, String set ) {
+	public List<Example> readExamples(String path, String set ) {
 		int loadedExamples = 0;
 		List<Example> ex = new ArrayList<Example>();
 		Path dir = Paths.get(path);
